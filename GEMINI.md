@@ -1,0 +1,125 @@
+﻿# GEMINI.md
+
+## プロジェクト概要
+
+Rustを使ってcastnowのforkを作る
+
+## 技術スタック
+
+- **開発言語**: rust
+- **formatter**: rustfmt
+- **linter**: clippy
+
+## ディレクトリ構成 (想定)
+
+```
+/
+├── Cargo.toml            # Rustプロジェクトのマニフェストファイル
+├── src/                  # Rustソースコード
+│   ├── main.rs           # メインアプリケーションのエントリーポイント
+│   └── lib.rs            # ライブラリコード
+└── target/               # コンパイルされたバイナリと成果物
+```
+
+## 開発プロセス
+
+### テスト駆動開発 (TDD)
+
+本プロジェクトではテスト駆動開発 (TDD) を採用します。以下のサイクルで開発を進めます。
+
+1.  **テストの実装**: 最初に、これから実装する機能のテストコードを記述します。このテストは、まだ機能が実装されていないため、失敗するはずです。
+2.  **テストの実行**: 記述したテストを実行し、失敗することを確認します。これにより、テストが正しく機能していることを確認します。
+3.  **コードの実装**: テストが成功するように、最小限のコードを実装します。
+4.  **テストの実行**: 再びテストを実行し、すべてのテストが成功することを確認します。
+
+### テストの記述
+
+モジュール内の関数などの単体テストは、`#[cfg(test)]` 属性を使用して、テスト対象のモジュール内に直接記述します。これにより、テストコードが本番ビルドに含まれるのを防ぎつつ、関連するコードとテストを近くに保つことができます。
+
+```rust
+// src/lib.rs または src/module_name.rs
+
+pub fn my_function() {
+    // ...
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // 親モジュールのアイテムをインポート
+
+    #[test]
+    fn test_my_function() {
+        // テストコード
+        assert_eq!(my_function(), "expected_value");
+    }
+}
+```
+
+### コード品質チェック
+
+コードの修正を行った場合、以下のコマンドを実行してフォーマットとリントのエラーがないか確認します。
+
+- `cargo fmt`: コードのフォーマットを自動修正します。
+- `cargo clippy`: コードのリントを実行し、潜在的な問題を検出します。
+
+## 主なコマンド
+
+- `cargo fmt`: formatter
+- `cargo clippy`: linter
+
+### コミット
+
+`commitして`という指示があった場合、変更をステージングしてからコミットします。
+コミットメッセージは英語で記述してください。
+
+### コミットメッセージの作成
+
+複数行のコミットメッセージを作成する場合、以下の手順でコミットしてください。
+
+1. コミットメッセージを一時ファイルに書き込みます。
+   `write_file(content="<コミットメッセージ>", file_path="/workspace/commit_message.txt")`
+2. 一時ファイルを指定してコミットします。
+   `git commit -F /workspace/commit_message.txt`
+3. コミット後、一時ファイルを削除します。
+   `rm /workspace/commit_message.txt`
+
+### Issue の確認
+
+`issueを確認して`という指示があった場合、`gh issue view <issue番号>`または`gh issue list`を使用します。
+
+### Issue の登録
+
+`issueを登録して`という指示があった場合、以下の手順で issue を登録します。
+issue のタイトルと本文は日本語で記述してください。
+
+1. issue の本文を一時ファイルに書き込みます。
+   `write_file(content="<issue本文>", file_path="/workspace/issue_body.md")`
+2. 一時ファイルを指定して issue を登録します。
+   `gh issue create --title "<issueタイトル>" --body-file /workspace/issue_body.md`
+3. issue 登録後、一時ファイルを削除します。
+   `rm /workspace/issue_body.md`
+
+
+
+### プルリクエストのコメント
+
+`プルリクエストにコメントして`という指示があった場合、以下の手順でコメントを登録します。
+
+1. コメント本文を一時ファイルに書き込みます。
+   `write_file(content="<コメント本文>", file_path="/workspace/pr_comment.txt")`
+2. 一時ファイルを指定してコメントを登録します。
+   `gh pr comment <プルリクエスト番号> --body-file /workspace/pr_comment.txt`
+3. コメント登録後、一時ファイルを削除します。
+   `rm /workspace/pr_comment.txt`
+
+### プルリクエストの作成
+
+`プルリクエストを作成して`という指示があった場合、以下の手順でプルリクエストを作成します。
+プルリクエストのタイトルと本文は日本語で記述してください。
+
+1. プルリクエストの本文を一時ファイルに書き込みます。
+   `write_file(content="<プルリクエスト本文>", file_path="/workspace/pr_body.md")`
+2. 一時ファイルを指定してプルリクエストを作成します。
+   `gh pr create --title "<プルリクエストタイトル>" --body-file /workspace/pr_body.md`
+3. プルリクエスト作成後、一時ファイルを削除します。
+   `rm /workspace/pr_body.md`
