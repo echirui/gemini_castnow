@@ -30,7 +30,7 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
                         let current_volume = &status.volume;
-                        let _ = device.receiver.set_volume(rust_cast::channels::receiver::Volume { level: current_volume.level, muted: !current_volume.muted });
+                        let _ = device.set_volume(rust_cast::channels::receiver::Volume { level: current_volume.level, muted: !current_volume.muted });
                     }
                 }
             }
