@@ -1,214 +1,516 @@
-use clap::{Parser, Subcommand};
-use id3::{Tag, TagLike};
-use playlist_decoder::decode_playlist;
-use scraper::{Html, Selector};
-use std::fs;
-use std::path::Path;
+use clap::Parser;
+use gemini_castnow::{Cli, Commands, start_server};
+use mdns_sd::{ServiceDaemon, ServiceEvent};
+use rust_cast::CastDevice;
+use rust_cast::channels::media::{Media, StreamType};
+use rust_cast::channels::receiver::CastDeviceApp;
+use std::io::{self, Write};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::time::sleep;
+use walkdir::WalkDir;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    #[command(subcommand)]
-    command: Commands,
-}
+#[tokio::main]
+async fn main() {
+    let cli = Cli::parse();
 
-#[derive(Subcommand, Debug)]
-enum Commands {
-    /// Handles audio file operations
-    Audio {
-        /// Path to the audio file
-        #[arg(short, long)]
-        file: String,
-    },
-    /// Handles playlist operations
-    Playlist {
-        /// Path to the playlist file
-        #[arg(short, long)]
-        file: String,
-    },
-    /// Handles HTML file operations
-    Html {
-        /// Path to the HTML file
-        #[arg(short, long)]
-        file: String,
-    },
-}
-
-fn main() {
-    let args = Args::parse();
-
-    match args.command {
-        Commands::Audio { file } => {
-            handle_audio_file(&file);
-        }
-        Commands::Playlist { file } => {
-            handle_playlist_file(&file);
-        }
-        Commands::Html { file } => {
-            handle_html_file(&file);
-        }
-    }
-}
-
-fn handle_audio_file(file_path: &str) {
-    let path = Path::new(file_path);
-
-    if !path.exists() {
-        eprintln!("Error: File not found at {file_path}");
-        return;
-    }
-
-    match Tag::read_from_path(path) {
-        Ok(tag) => {
-            println!("--- Audio Metadata ---");
-            if let Some(title) = tag.title() {
-                println!("Title: {title}");
-            }
-            if let Some(artist) = tag.artist() {
-                println!("Artist: {artist}");
-            }
-            if let Some(album) = tag.album() {
-                println!("Album: {album}");
-            }
-            if let Some(year) = tag.year() {
-                println!("Year: {year}");
-            }
-            if let Some(genre) = tag.genre() {
-                println!("Genre: {genre}");
-            }
-            if let Some(track) = tag.track() {
-                println!("Track: {track}");
-            }
-            if let Some(total_tracks) = tag.total_tracks() {
-                println!("Total Tracks: {total_tracks}");
-            }
-            if let Some(disc) = tag.disc() {
-                println!("Disc: {disc}");
-            }
-            if let Some(total_discs) = tag.total_discs() {
-                println!("Total Discs: {total_discs}");
-            }
-            if let Some(comment) = tag.comments().next() {
-                println!("Comment: {}", comment.text);
+    match &cli.command {
+        Commands::PlayFile { file } => {
+            println!("Playing local file: {}", file);
+            let file_path = PathBuf::from(file);
+            if !file_path.exists() {
+                eprintln!("Error: File not found: {}", file);
+                return;
             }
 
-            for picture in tag.pictures() {
-                println!(
-                    "Cover Art: MIME Type = {}, Size = {} bytes",
-                    picture.mime_type,
-                    picture.data.len()
-                );
-            }
-        }
-        Err(e) => {
-            eprintln!("Error reading tags from {file_path}: {e}");
-        }
-    }
-}
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let (server_socket_addr, server_handle) = match start_server(file_path, rx).await {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("Error starting server: {}", e);
+                    return;
+                }
+            };
 
-fn handle_playlist_file(file_path: &str) {
-    let path = Path::new(file_path);
+            println!("Searching for Chromecast devices...");
+            let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
-    if !path.exists() {
-        eprintln!("Error: Playlist file not found at {file_path}");
-        return;
-    }
+            let mut chromecasts = Vec::new();
+            let timeout = Duration::from_secs(5);
+            let start_time = tokio::time::Instant::now();
 
-    let content = match fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("Error reading playlist file {file_path}: {e}");
-            return;
-        }
-    };
-
-    let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-
-    match extension.to_lowercase().as_str() {
-        "m3u" | "m3u8" | "pls" | "xspf" => {
-            // playlist-decoder handles these
-            let playlist_entries = decode_playlist(&content);
-            println!("--- {} Playlist ---", extension.to_uppercase());
-            for entry in playlist_entries {
-                println!("Path: {entry}");
-            }
-        }
-        "cue" => {
-            handle_cue_file(&content);
-        }
-        _ => {
-            eprintln!("Error: Unsupported playlist format for file {file_path}");
-        }
-    }
-}
-
-fn handle_cue_file(content: &str) {
-    println!("--- CUE Sheet ---");
-    let mut current_file = String::new();
-    let mut current_track_number = 0;
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if line.starts_with("FILE") {
-            if let Some(file_path_start) = line.find('"') {
-                if let Some(file_path_end) = line[file_path_start + 1..].find('"') {
-                    current_file =
-                        line[file_path_start + 1..file_path_start + 1 + file_path_end].to_string();
-                    println!("File: {current_file}");
+            while tokio::time::Instant::now() - start_time < timeout {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
+                    Ok(Ok(event)) => {
+                        if let ServiceEvent::ServiceResolved(info) = event {
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
+                            chromecasts.push(info);
+                        }
+                    }
+                    Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
+                    Err(_) => break, // Timeout
                 }
             }
-        } else if line.starts_with("TRACK") {
-            if let Some(track_num_str) = line.split_whitespace().nth(1) {
-                if let Ok(track_num) = track_num_str.parse::<u32>() {
-                    current_track_number = track_num;
-                    println!("  Track: {current_track_number}");
+
+            if chromecasts.is_empty() {
+                eprintln!("No Chromecast devices found.");
+                // Send shutdown signal to server before exiting
+                let _ = tx.send(());
+                return;
+            }
+
+            // For now, just pick the first one
+            let chromecast_info = &chromecasts[0];
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
+            let chromecast_port = chromecast_info.get_port();
+            let chromecast_name = chromecast_info.get_fullname();
+
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
+
+            let device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Failed to connect to Chromecast: {}", e);
+                    // Send shutdown signal to server before exiting
+                    let _ = tx.send(());
+                    return;
+                }
+            };
+
+            let media_url = format!("http://{}/", server_socket_addr);
+            println!("Casting URL: {}", media_url);
+
+            // Corrected: Use CastDeviceApp::from_str
+            let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
+
+            match device.receiver.launch_app(&default_media_receiver_app) {
+                Ok(app) => {
+                    println!("Launched app: {}", app.app_id);
+                    let media = Media {
+                        content_id: media_url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
+                        Ok(_) => println!("Media loaded successfully!"),
+                        Err(e) => eprintln!("Failed to load media: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Failed to launch app: {}", e),
+            }
+
+            // Send shutdown signal to server after casting
+            let _ = tx.send(());
+            let _ = server_handle.await; // Await the server task to ensure it shuts down
+        }
+        Commands::PlayDir { dir } => {
+            println!("Playing media from directory: {}", dir);
+            let dir_path = PathBuf::from(dir);
+            if !dir_path.is_dir() {
+                eprintln!("Error: Directory not found or is not a directory: {}", dir);
+                return;
+            }
+
+            let mut media_files = Vec::new();
+            for entry in WalkDir::new(&dir_path).into_iter().filter_map(|e| e.ok()) {
+                if entry.file_type().is_file() {
+                    let path = entry.path().to_path_buf();
+                    // Basic media file type check (can be expanded)
+                    if let Some(ext) = path.extension() {
+                        if ext == "mp4" || ext == "mkv" || ext == "avi" || ext == "mp3" {
+                            media_files.push(path);
+                        }
+                    }
                 }
             }
-        } else if line.starts_with("TITLE") {
-            if let Some(title_start) = line.find('"') {
-                if let Some(title_end) = line[title_start + 1..].find('"') {
-                    let title = line[title_start + 1..title_start + 1 + title_end].to_string();
-                    println!("    Title: {title}");
+
+            if media_files.is_empty() {
+                println!("No supported media files found in directory: {}", dir);
+                return;
+            }
+
+            println!("Found media files:");
+            for (i, file) in media_files.iter().enumerate() {
+                println!("{}: {}", i + 1, file.display());
+            }
+
+            let selected_file_path: PathBuf;
+            loop {
+                print!("Enter the number of the file to play: ");
+                io::stdout().flush().unwrap();
+
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+                let input = input.trim();
+
+                if let Ok(index) = input.parse::<usize>() {
+                    if index > 0 && index <= media_files.len() {
+                        selected_file_path = media_files[index - 1].clone();
+                        break;
+                    } else {
+                        println!("Invalid number. Please try again.");
+                    }
+                } else {
+                    println!("Invalid input. Please enter a number.");
                 }
             }
-        } else if line.starts_with("INDEX") {
-            if let Some(index_parts) = line.split_whitespace().nth(2) {
-                println!("    Index: {index_parts}");
+
+            println!("Playing selected file: {}", selected_file_path.display());
+
+            // Reuse PlayFile logic
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let (server_socket_addr, server_handle) =
+                match start_server(selected_file_path, rx).await {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("Error starting server: {}", e);
+                        return;
+                    }
+                };
+
+            println!("Searching for Chromecast devices...");
+            let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
+
+            let mut chromecasts = Vec::new();
+            let timeout = Duration::from_secs(5);
+            let start_time = tokio::time::Instant::now();
+
+            while tokio::time::Instant::now() - start_time < timeout {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
+                    Ok(Ok(event)) => {
+                        if let ServiceEvent::ServiceResolved(info) = event {
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
+                            chromecasts.push(info);
+                        }
+                    }
+                    Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
+                    Err(_) => break, // Timeout
+                }
+            }
+
+            if chromecasts.is_empty() {
+                eprintln!("No Chromecast devices found.");
+                let _ = tx.send(());
+                return;
+            }
+
+            let chromecast_info = &chromecasts[0];
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
+            let chromecast_port = chromecast_info.get_port();
+            let chromecast_name = chromecast_info.get_fullname();
+
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
+
+            let device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Failed to connect to Chromecast: {}", e);
+                    let _ = tx.send(());
+                    return;
+                }
+            };
+
+            let media_url = format!("http://{}/", server_socket_addr);
+            println!("Casting URL: {}", media_url);
+
+            let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
+
+            match device.receiver.launch_app(&default_media_receiver_app) {
+                Ok(app) => {
+                    println!("Launched app: {}", app.app_id);
+                    let media = Media {
+                        content_id: media_url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
+                        Ok(_) => println!("Media loaded successfully!"),
+                        Err(e) => eprintln!("Failed to load media: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Failed to launch app: {}", e),
+            }
+
+            // Send shutdown signal to server after casting
+            let _ = tx.send(());
+            let _ = server_handle.await; // Await the server task to ensure it shuts down
+        }
+        Commands::PlayMultiple { files } => {
+            println!("Playing multiple files: {:?}", files);
+            // Discover Chromecasts once
+            println!("Searching for Chromecast devices...");
+            let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
+
+            let mut chromecasts = Vec::new();
+            let timeout = Duration::from_secs(5);
+            let start_time = tokio::time::Instant::now();
+
+            while tokio::time::Instant::now() - start_time < timeout {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
+                    Ok(Ok(event)) => {
+                        if let ServiceEvent::ServiceResolved(info) = event {
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
+                            chromecasts.push(info);
+                        }
+                    }
+                    Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
+                    Err(_) => break, // Timeout
+                }
+            }
+
+            if chromecasts.is_empty() {
+                eprintln!("No Chromecast devices found.");
+                return;
+            }
+
+            let chromecast_info = &chromecasts[0];
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
+            let chromecast_port = chromecast_info.get_port();
+            let chromecast_name = chromecast_info.get_fullname();
+
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
+
+            let device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Failed to connect to Chromecast: {}", e);
+                    return;
+                }
+            };
+
+            let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
+
+            for file in files {
+                println!("Playing file: {}", file);
+                let file_path = PathBuf::from(file);
+                if !file_path.exists() {
+                    eprintln!("Error: File not found: {}", file);
+                    continue; // Skip to the next file
+                }
+
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                let (server_socket_addr, server_handle) = match start_server(file_path, rx).await {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("Error starting server for {}: {}", file, e);
+                        continue; // Skip to the next file
+                    }
+                };
+
+                let media_url = format!("http://{}/", server_socket_addr);
+                println!("Casting URL: {}", media_url);
+
+                match device.receiver.launch_app(&default_media_receiver_app) {
+                    Ok(app) => {
+                        println!("Launched app: {}", app.app_id);
+                        let media = Media {
+                            content_id: media_url.to_string(),
+                            content_type: "video/mp4".to_string(),
+                            stream_type: StreamType::Buffered,
+                            duration: None,
+                            metadata: None,
+                        };
+                        match device.media.load(
+                            app.transport_id.as_str(),
+                            app.session_id.as_str(),
+                            &media,
+                        ) {
+                            Ok(_) => println!("Media loaded successfully!"),
+                            Err(e) => eprintln!("Failed to load media: {}", e),
+                        }
+                    }
+                    Err(e) => eprintln!("Failed to launch app: {}", e),
+                }
+
+                let _ = tx.send(());
+                let _ = server_handle.await;
+
+                // Small delay between files (optional)
+                sleep(Duration::from_secs(2)).await;
             }
         }
-    }
-}
+        Commands::PlayUrl { url } => {
+            println!("Playing URL: {}", url);
+            // Discover Chromecasts once
+            println!("Searching for Chromecast devices...");
+            let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
-fn handle_html_file(file_path: &str) {
-    let path = Path::new(file_path);
+            let mut chromecasts = Vec::new();
+            let timeout = Duration::from_secs(5);
+            let start_time = tokio::time::Instant::now();
 
-    if !path.exists() {
-        eprintln!("Error: HTML file not found at {file_path}");
-        return;
-    }
+            while tokio::time::Instant::now() - start_time < timeout {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
+                    Ok(Ok(event)) => {
+                        if let ServiceEvent::ServiceResolved(info) = event {
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
+                            chromecasts.push(info);
+                        }
+                    }
+                    Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
+                    Err(_) => break, // Timeout
+                }
+            }
 
-    let content = match fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("Error reading HTML file {file_path}: {e}");
-            return;
+            if chromecasts.is_empty() {
+                eprintln!("No Chromecast devices found.");
+                return;
+            }
+
+            let chromecast_info = &chromecasts[0];
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
+            let chromecast_port = chromecast_info.get_port();
+            let chromecast_name = chromecast_info.get_fullname();
+
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
+
+            let device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Failed to connect to Chromecast: {}", e);
+                    return;
+                }
+            };
+
+            let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
+
+            match device.receiver.launch_app(&default_media_receiver_app) {
+                Ok(app) => {
+                    println!("Launched app: {}", app.app_id);
+                    let media = Media {
+                        content_id: url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
+                        Ok(_) => println!("Media loaded successfully!"),
+                        Err(e) => eprintln!("Failed to load media: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Failed to launch app: {}", e),
+            }
         }
-    };
-
-    let document = Html::parse_document(&content);
-    let selector = Selector::parse(
-        "a[href$='.mp3'], a[href$='.flac'], a[href$='.ogg'], a[href$='.wav'], a[href$='.m4a']",
-    )
-    .unwrap();
-
-    println!("--- Audio Links in HTML ---");
-    for element in document.select(&selector) {
-        if let Some(href) = element.value().attr("href") {
-            println!("Link: {href}");
+        Commands::PlayTorrent { torrent: _ } => {
+            // TODO: Implement torrent playback using librqbit
+            // The previous attempt to use librqbit encountered persistent compilation errors
+            // related to accessing file information within the torrent metadata.
+            // This feature will be implemented at a later stage.
+            eprintln!("Torrent playback is not yet implemented.");
         }
     }
 }

@@ -4,10 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.41", features = ["derive"] }
-id3 = "1.0"
-playlist-decoder = "0.1.0"
-scraper = "0.19.0"
+clap = { version = "4.5.4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+hyper = { version = "1", features = ["full"] }
+walkdir = "2.5.0"
+mdns-sd = "0.10.0"
+rust_cast = "0.19.0"
+http-body-util = "0.1.1"
+bytes = "1.6.0"
+hyper-util = { version = "0.1.1", features = ["full"] }
+librqbit = "8.1.1"
 
-
-image = "0.25.1"
+[dev-dependencies]
+tempfile = "3.10.1"
