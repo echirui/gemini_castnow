@@ -5,4 +5,9 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.41", features = ["derive"] }
-mdns = "3.0.0"
+id3 = "1.0"
+playlist-decoder = "0.1.0"
+scraper = "0.19.0"
+
+
+image = "0.25.1"
