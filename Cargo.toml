@@ -1,0 +1,8 @@
+[package]
+name = "gemini_castnow"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = "4.5.41"
+mdns = "3.0.0"
