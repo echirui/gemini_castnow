@@ -1,16 +1,16 @@
+use bytes::Bytes;
 use clap::{Parser, Subcommand};
-use tokio::net::TcpListener;
+use http_body_util::Full;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
+use hyper_util::rt::TokioIo;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use http_body_util::{Full};
-use bytes::Bytes;
-use hyper_util::rt::TokioIo;
+use tokio::net::TcpListener;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -53,7 +53,10 @@ pub enum Commands {
     },
 }
 
-async fn serve_file(req: Request<hyper::body::Incoming>, file_path: Arc<PathBuf>) -> Result<Response<Full<Bytes>>, hyper::Error> {
+async fn serve_file(
+    req: Request<hyper::body::Incoming>,
+    file_path: Arc<PathBuf>,
+) -> Result<Response<Full<Bytes>>, hyper::Error> {
     if req.uri().path() != "/" {
         let mut not_found = Response::new(Full::new(Bytes::from("Not Found")));
         *not_found.status_mut() = StatusCode::NOT_FOUND;
@@ -81,7 +84,16 @@ async fn serve_file(req: Request<hyper::body::Incoming>, file_path: Arc<PathBuf>
     Ok(Response::new(Full::new(Bytes::from(buffer))))
 }
 
-pub async fn start_server(file_to_serve: PathBuf, shutdown_rx: tokio::sync::oneshot::Receiver<()>) -> Result<(SocketAddr, tokio::task::JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>>), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn start_server(
+    file_to_serve: PathBuf,
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+) -> Result<
+    (
+        SocketAddr,
+        tokio::task::JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
+    ),
+    Box<dyn std::error::Error + Send + Sync>,
+> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 0)); // Use 0 to let the OS choose a free port
     let listener = TcpListener::bind(addr).await?;
     let local_addr = listener.local_addr()?;

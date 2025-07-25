@@ -9,7 +9,7 @@ tokio = { version = "1", features = ["full"] }
 hyper = { version = "1", features = ["full"] }
 walkdir = "2.5.0"
 mdns-sd = "0.10.0"
-rust_cast = { path = "rust-cast-fork" }
+rust_cast = "0.19.0"
 http-body-util = "0.1.1"
 bytes = "1.6.0"
 hyper-util = { version = "0.1.1", features = ["full"] }

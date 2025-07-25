@@ -1,18 +1,20 @@
+use bytes::Bytes;
 use gemini_castnow::start_server;
-use std::path::PathBuf;
-use tokio::io::AsyncReadExt;
+use http_body_util::{BodyExt, Empty};
+use hyper::{Method, Request, Uri};
 use hyper_util::client::legacy::{Client, connect::HttpConnector};
 use hyper_util::rt::TokioExecutor;
-use http_body_util::{BodyExt, Empty};
-use bytes::Bytes;
-use hyper::{Request, Method, Uri};
+use std::path::PathBuf;
+use tokio::io::AsyncReadExt;
 
 #[tokio::test]
 async fn test_start_server() {
     // Create a dummy file to serve
     let temp_dir = tempfile::tempdir().unwrap();
     let file_path = temp_dir.path().join("test_file.txt");
-    tokio::fs::write(&file_path, b"Hello, world!").await.unwrap();
+    tokio::fs::write(&file_path, b"Hello, world!")
+        .await
+        .unwrap();
 
     // Create a channel for server shutdown
     let (tx, rx) = tokio::sync::oneshot::channel();

@@ -1,8 +1,8 @@
+use clap::Parser;
 use gemini_castnow::{Cli, Commands};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use std::io::{self, Write, BufRead, BufReader};
-use clap::Parser;
 
 #[tokio::test]
 async fn test_play_dir_file_selection() {
@@ -10,9 +10,15 @@ async fn test_play_dir_file_selection() {
     let temp_dir = tempfile::tempdir().unwrap();
     let dir_path = temp_dir.path().to_path_buf();
 
-    tokio::fs::write(dir_path.join("video1.mp4"), b"dummy video content").await.unwrap();
-    tokio::fs::write(dir_path.join("audio1.mp3"), b"dummy audio content").await.unwrap();
-    tokio::fs::write(dir_path.join("text.txt"), b"dummy text content").await.unwrap();
+    tokio::fs::write(dir_path.join("video1.mp4"), b"dummy video content")
+        .await
+        .unwrap();
+    tokio::fs::write(dir_path.join("audio1.mp3"), b"dummy audio content")
+        .await
+        .unwrap();
+    tokio::fs::write(dir_path.join("text.txt"), b"dummy text content")
+        .await
+        .unwrap();
 
     // Simulate user input for selecting the first file
     let input = "1\n";
@@ -64,7 +70,10 @@ async fn test_play_dir_file_selection() {
     }
 
     let selected_file = &media_files[selected_index];
-    assert_eq!(selected_file.file_name().unwrap().to_str().unwrap(), "audio1.mp3"); // Assuming sorted order
+    assert_eq!(
+        selected_file.file_name().unwrap().to_str().unwrap(),
+        "audio1.mp3"
+    ); // Assuming sorted order
 
     // Clean up the temporary directory
     temp_dir.close().unwrap();

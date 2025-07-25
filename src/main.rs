@@ -1,16 +1,16 @@
 use clap::Parser;
 use gemini_castnow::{Cli, Commands, start_server};
-use std::path::PathBuf;
-use walkdir::WalkDir;
+use librqbit::{AddTorrent, Session};
 use mdns_sd::{ServiceDaemon, ServiceEvent};
-use std::time::Duration;
-use tokio::time::sleep;
 use rust_cast::CastDevice;
 use rust_cast::channels::media::{Media, StreamType};
 use rust_cast::channels::receiver::CastDeviceApp;
-use std::str::FromStr;
 use std::io::{self, Write};
-use librqbit::{Session, AddTorrent};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::time::sleep;
+use walkdir::WalkDir;
 
 #[tokio::main]
 async fn main() {
@@ -36,20 +36,32 @@ async fn main() {
 
             println!("Searching for Chromecast devices...");
             let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
-            let receiver = mdns.browse("_googlecast._tcp.local.").expect("Failed to browse mDNS services");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
             let mut chromecasts = Vec::new();
             let timeout = Duration::from_secs(5);
             let start_time = tokio::time::Instant::now();
 
             while tokio::time::Instant::now() - start_time < timeout {
-                match tokio::time::timeout(timeout - (tokio::time::Instant::now() - start_time), receiver.recv_async()).await {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
                     Ok(Ok(event)) => {
                         if let ServiceEvent::ServiceResolved(info) = event {
-                            println!("Found Chromecast: {} at {}:{}", info.get_fullname(), info.get_addresses().iter().next().unwrap(), info.get_port());
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
                             chromecasts.push(info);
                         }
-                    },
+                    }
                     Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
                     Err(_) => break, // Timeout
                 }
@@ -64,13 +76,24 @@ async fn main() {
 
             // For now, just pick the first one
             let chromecast_info = &chromecasts[0];
-            let chromecast_ip = chromecast_info.get_addresses().iter().next().unwrap().to_string();
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
             let chromecast_port = chromecast_info.get_port();
             let chromecast_name = chromecast_info.get_fullname();
 
-            println!("Attempting to cast to {}: {}:{}", chromecast_name, chromecast_ip, chromecast_port);
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
 
-            let mut device = match CastDevice::connect_without_host_verification(chromecast_ip.as_str(), chromecast_port) {
+            let mut device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!("Failed to connect to Chromecast: {}", e);
@@ -86,15 +109,25 @@ async fn main() {
             // Corrected: Use CastDeviceApp::from_str
             let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
 
-            match device.receiver.launch_app(&default_media_receiver_app) { 
+            match device.receiver.launch_app(&default_media_receiver_app) {
                 Ok(app) => {
                     println!("Launched app: {}", app.app_id);
-                    let media = Media { content_id: media_url.to_string(), content_type: "video/mp4".to_string(), stream_type: StreamType::Buffered, duration: None, metadata: None };
-                    match device.media.load(app.transport_id.as_str(), app.session_id.as_str(), &media) { 
+                    let media = Media {
+                        content_id: media_url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
                         Ok(_) => println!("Media loaded successfully!"),
                         Err(e) => eprintln!("Failed to load media: {}", e),
                     }
-                },
+                }
                 Err(e) => eprintln!("Failed to launch app: {}", e),
             }
 
@@ -158,30 +191,43 @@ async fn main() {
 
             // Reuse PlayFile logic
             let (tx, rx) = tokio::sync::oneshot::channel();
-            let (server_socket_addr, server_handle) = match start_server(selected_file_path, rx).await {
-                Ok(val) => val,
-                Err(e) => {
-                    eprintln!("Error starting server: {}", e);
-                    return;
-                }
-            };
+            let (server_socket_addr, server_handle) =
+                match start_server(selected_file_path, rx).await {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("Error starting server: {}", e);
+                        return;
+                    }
+                };
 
             println!("Searching for Chromecast devices...");
             let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
-            let receiver = mdns.browse("_googlecast._tcp.local.").expect("Failed to browse mDNS services");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
             let mut chromecasts = Vec::new();
             let timeout = Duration::from_secs(5);
             let start_time = tokio::time::Instant::now();
 
             while tokio::time::Instant::now() - start_time < timeout {
-                match tokio::time::timeout(timeout - (tokio::time::Instant::now() - start_time), receiver.recv_async()).await {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
                     Ok(Ok(event)) => {
                         if let ServiceEvent::ServiceResolved(info) = event {
-                            println!("Found Chromecast: {} at {}:{}", info.get_fullname(), info.get_addresses().iter().next().unwrap(), info.get_port());
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
                             chromecasts.push(info);
                         }
-                    },
+                    }
                     Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
                     Err(_) => break, // Timeout
                 }
@@ -194,13 +240,24 @@ async fn main() {
             }
 
             let chromecast_info = &chromecasts[0];
-            let chromecast_ip = chromecast_info.get_addresses().iter().next().unwrap().to_string();
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
             let chromecast_port = chromecast_info.get_port();
             let chromecast_name = chromecast_info.get_fullname();
 
-            println!("Attempting to cast to {}: {}:{}", chromecast_name, chromecast_ip, chromecast_port);
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
 
-            let mut device = match CastDevice::connect_without_host_verification(chromecast_ip.as_str(), chromecast_port) {
+            let mut device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!("Failed to connect to Chromecast: {}", e);
@@ -214,15 +271,25 @@ async fn main() {
 
             let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
 
-            match device.receiver.launch_app(&default_media_receiver_app) { 
+            match device.receiver.launch_app(&default_media_receiver_app) {
                 Ok(app) => {
                     println!("Launched app: {}", app.app_id);
-                    let media = Media { content_id: media_url.to_string(), content_type: "video/mp4".to_string(), stream_type: StreamType::Buffered, duration: None, metadata: None };
-                    match device.media.load(app.transport_id.as_str(), app.session_id.as_str(), &media) { 
+                    let media = Media {
+                        content_id: media_url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
                         Ok(_) => println!("Media loaded successfully!"),
                         Err(e) => eprintln!("Failed to load media: {}", e),
                     }
-                },
+                }
                 Err(e) => eprintln!("Failed to launch app: {}", e),
             }
 
@@ -235,20 +302,32 @@ async fn main() {
             // Discover Chromecasts once
             println!("Searching for Chromecast devices...");
             let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
-            let receiver = mdns.browse("_googlecast._tcp.local.").expect("Failed to browse mDNS services");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
             let mut chromecasts = Vec::new();
             let timeout = Duration::from_secs(5);
             let start_time = tokio::time::Instant::now();
 
             while tokio::time::Instant::now() - start_time < timeout {
-                match tokio::time::timeout(timeout - (tokio::time::Instant::now() - start_time), receiver.recv_async()).await {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
                     Ok(Ok(event)) => {
                         if let ServiceEvent::ServiceResolved(info) = event {
-                            println!("Found Chromecast: {} at {}:{}", info.get_fullname(), info.get_addresses().iter().next().unwrap(), info.get_port());
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
                             chromecasts.push(info);
                         }
-                    },
+                    }
                     Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
                     Err(_) => break, // Timeout
                 }
@@ -260,13 +339,24 @@ async fn main() {
             }
 
             let chromecast_info = &chromecasts[0];
-            let chromecast_ip = chromecast_info.get_addresses().iter().next().unwrap().to_string();
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
             let chromecast_port = chromecast_info.get_port();
             let chromecast_name = chromecast_info.get_fullname();
 
-            println!("Attempting to cast to {}: {}:{}", chromecast_name, chromecast_ip, chromecast_port);
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
 
-            let mut device = match CastDevice::connect_without_host_verification(chromecast_ip.as_str(), chromecast_port) {
+            let mut device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!("Failed to connect to Chromecast: {}", e);
@@ -296,15 +386,25 @@ async fn main() {
                 let media_url = format!("http://{}/", server_socket_addr);
                 println!("Casting URL: {}", media_url);
 
-                match device.receiver.launch_app(&default_media_receiver_app) { 
+                match device.receiver.launch_app(&default_media_receiver_app) {
                     Ok(app) => {
                         println!("Launched app: {}", app.app_id);
-                        let media = Media { content_id: media_url.to_string(), content_type: "video/mp4".to_string(), stream_type: StreamType::Buffered, duration: None, metadata: None };
-                        match device.media.load(app.transport_id.as_str(), app.session_id.as_str(), &media) { 
+                        let media = Media {
+                            content_id: media_url.to_string(),
+                            content_type: "video/mp4".to_string(),
+                            stream_type: StreamType::Buffered,
+                            duration: None,
+                            metadata: None,
+                        };
+                        match device.media.load(
+                            app.transport_id.as_str(),
+                            app.session_id.as_str(),
+                            &media,
+                        ) {
                             Ok(_) => println!("Media loaded successfully!"),
                             Err(e) => eprintln!("Failed to load media: {}", e),
                         }
-                    },
+                    }
                     Err(e) => eprintln!("Failed to launch app: {}", e),
                 }
 
@@ -320,20 +420,32 @@ async fn main() {
             // Discover Chromecasts once
             println!("Searching for Chromecast devices...");
             let mdns = ServiceDaemon::new().expect("Failed to create mDNS daemon");
-            let receiver = mdns.browse("_googlecast._tcp.local.").expect("Failed to browse mDNS services");
+            let receiver = mdns
+                .browse("_googlecast._tcp.local.")
+                .expect("Failed to browse mDNS services");
 
             let mut chromecasts = Vec::new();
             let timeout = Duration::from_secs(5);
             let start_time = tokio::time::Instant::now();
 
             while tokio::time::Instant::now() - start_time < timeout {
-                match tokio::time::timeout(timeout - (tokio::time::Instant::now() - start_time), receiver.recv_async()).await {
+                match tokio::time::timeout(
+                    timeout - (tokio::time::Instant::now() - start_time),
+                    receiver.recv_async(),
+                )
+                .await
+                {
                     Ok(Ok(event)) => {
                         if let ServiceEvent::ServiceResolved(info) = event {
-                            println!("Found Chromecast: {} at {}:{}", info.get_fullname(), info.get_addresses().iter().next().unwrap(), info.get_port());
+                            println!(
+                                "Found Chromecast: {} at {}:{}",
+                                info.get_fullname(),
+                                info.get_addresses().iter().next().unwrap(),
+                                info.get_port()
+                            );
                             chromecasts.push(info);
                         }
-                    },
+                    }
                     Ok(Err(e)) => eprintln!("mDNS receive error: {}", e),
                     Err(_) => break, // Timeout
                 }
@@ -345,13 +457,24 @@ async fn main() {
             }
 
             let chromecast_info = &chromecasts[0];
-            let chromecast_ip = chromecast_info.get_addresses().iter().next().unwrap().to_string();
+            let chromecast_ip = chromecast_info
+                .get_addresses()
+                .iter()
+                .next()
+                .unwrap()
+                .to_string();
             let chromecast_port = chromecast_info.get_port();
             let chromecast_name = chromecast_info.get_fullname();
 
-            println!("Attempting to cast to {}: {}:{}", chromecast_name, chromecast_ip, chromecast_port);
+            println!(
+                "Attempting to cast to {}: {}:{}",
+                chromecast_name, chromecast_ip, chromecast_port
+            );
 
-            let mut device = match CastDevice::connect_without_host_verification(chromecast_ip.as_str(), chromecast_port) {
+            let mut device = match CastDevice::connect_without_host_verification(
+                chromecast_ip.as_str(),
+                chromecast_port,
+            ) {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!("Failed to connect to Chromecast: {}", e);
@@ -361,15 +484,25 @@ async fn main() {
 
             let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
 
-            match device.receiver.launch_app(&default_media_receiver_app) { 
+            match device.receiver.launch_app(&default_media_receiver_app) {
                 Ok(app) => {
                     println!("Launched app: {}", app.app_id);
-                    let media = Media { content_id: url.to_string(), content_type: "video/mp4".to_string(), stream_type: StreamType::Buffered, duration: None, metadata: None };
-                    match device.media.load(app.transport_id.as_str(), app.session_id.as_str(), &media) { 
+                    let media = Media {
+                        content_id: url.to_string(),
+                        content_type: "video/mp4".to_string(),
+                        stream_type: StreamType::Buffered,
+                        duration: None,
+                        metadata: None,
+                    };
+                    match device.media.load(
+                        app.transport_id.as_str(),
+                        app.session_id.as_str(),
+                        &media,
+                    ) {
                         Ok(_) => println!("Media loaded successfully!"),
                         Err(e) => eprintln!("Failed to load media: {}", e),
                     }
-                },
+                }
                 Err(e) => eprintln!("Failed to launch app: {}", e),
             }
         }
