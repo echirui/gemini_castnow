@@ -29,19 +29,6 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 println!("Toggling play/pause...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
-                        if media_status.player_state == rust_cast::channels::media::PlayerState::Playing {
-                            let _ = device.media.pause(&transport_id, media_status.media_session_id);
-                        } else {
-                            let _ = device.media.play(&transport_id, media_status.media_session_id);
-                        }
-                    }
-                }
-            }
-            KeyCode::Char('m') => {
-                // Mute toggle
-                println!("Toggling mute...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    if let Some(media_status) = status.entries.first() {
                         let current_volume = &media_status.volume;
                         let _ = device.receiver.set_volume(rust_cast::channels::receiver::Volume { level: current_volume.level, muted: !current_volume.muted });
                     }
