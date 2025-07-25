@@ -4,8 +4,6 @@ use http_body_util::{BodyExt, Empty};
 use hyper::{Method, Request, Uri};
 use hyper_util::client::legacy::{Client, connect::HttpConnector};
 use hyper_util::rt::TokioExecutor;
-use std::path::PathBuf;
-use tokio::io::AsyncReadExt;
 
 #[tokio::test]
 async fn test_start_server() {

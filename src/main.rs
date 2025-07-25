@@ -1,6 +1,5 @@
 use clap::Parser;
 use gemini_castnow::{Cli, Commands, start_server};
-use librqbit::{AddTorrent, Session};
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 use rust_cast::CastDevice;
 use rust_cast::channels::media::{Media, StreamType};
@@ -90,7 +89,7 @@ async fn main() {
                 chromecast_name, chromecast_ip, chromecast_port
             );
 
-            let mut device = match CastDevice::connect_without_host_verification(
+            let device = match CastDevice::connect_without_host_verification(
                 chromecast_ip.as_str(),
                 chromecast_port,
             ) {
@@ -254,7 +253,7 @@ async fn main() {
                 chromecast_name, chromecast_ip, chromecast_port
             );
 
-            let mut device = match CastDevice::connect_without_host_verification(
+            let device = match CastDevice::connect_without_host_verification(
                 chromecast_ip.as_str(),
                 chromecast_port,
             ) {
@@ -353,7 +352,7 @@ async fn main() {
                 chromecast_name, chromecast_ip, chromecast_port
             );
 
-            let mut device = match CastDevice::connect_without_host_verification(
+            let device = match CastDevice::connect_without_host_verification(
                 chromecast_ip.as_str(),
                 chromecast_port,
             ) {
@@ -471,7 +470,7 @@ async fn main() {
                 chromecast_name, chromecast_ip, chromecast_port
             );
 
-            let mut device = match CastDevice::connect_without_host_verification(
+            let device = match CastDevice::connect_without_host_verification(
                 chromecast_ip.as_str(),
                 chromecast_port,
             ) {

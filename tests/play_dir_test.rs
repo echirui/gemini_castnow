@@ -1,7 +1,5 @@
-use clap::Parser;
-use gemini_castnow::{Cli, Commands};
+
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::PathBuf;
 use walkdir::WalkDir;
 
 #[tokio::test]
