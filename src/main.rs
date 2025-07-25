@@ -1,6 +1,6 @@
 mod chromecast;
 mod config;
-mod server;
+pub mod server;
 mod settings;
 mod utils;
 

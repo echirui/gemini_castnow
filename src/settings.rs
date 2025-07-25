@@ -87,16 +87,16 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = Settings::parse_from(vec!["gemini_castnow"]);
-        assert_eq!(settings.no_search, false);
-        assert_eq!(settings.loop_playback, false);
-        assert_eq!(settings.shuffle, false);
+        assert!(!settings.no_search);
+        assert!(!settings.loop_playback);
+        assert!(!settings.shuffle);
         assert_eq!(settings.volume_step, None);
-        assert_eq!(settings.tomp4, false);
-        assert_eq!(settings.quiet, false);
-        assert_eq!(settings.no_metadata, false);
-        assert_eq!(settings.no_cover, false);
-        assert_eq!(settings.show_options, false);
-        assert_eq!(settings.exit, false);
+        assert!(!settings.tomp4);
+        assert!(!settings.quiet);
+        assert!(!settings.no_metadata);
+        assert!(!settings.no_cover);
+        assert!(!settings.show_options);
+        assert!(!settings.exit);
     }
 
     #[test]
@@ -108,8 +108,8 @@ mod tests {
             "--volume-step",
             "0.1",
         ]);
-        assert_eq!(settings.no_search, true);
-        assert_eq!(settings.loop_playback, true);
+        assert!(settings.no_search);
+        assert!(settings.loop_playback);
         assert_eq!(settings.volume_step, Some(0.1));
     }
 
@@ -120,8 +120,8 @@ mod tests {
             "volume_step": 0.2
         }"#;
         let settings: Settings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.no_search, true);
+        assert!(settings.no_search);
         assert_eq!(settings.volume_step, Some(0.2));
-        assert_eq!(settings.loop_playback, false); // Default from serde
+        assert!(!settings.loop_playback); // Default from serde
     }
 }

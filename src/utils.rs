@@ -74,10 +74,10 @@ mod tests {
         assert_eq!(merged.address, Some("192.168.1.100".to_string())); // CLI overrides
         assert_eq!(merged.device, Some("Bedroom TV".to_string())); // File/Env is present, CLI is None
         assert_eq!(merged.subtitles, Some("sub.srt".to_string()));
-        assert_eq!(merged.no_search, true); // CLI overrides
-        assert_eq!(merged.loop_playback, true); // File/Env is true, CLI is false
+        assert!(merged.no_search); // CLI overrides
+        assert!(merged.loop_playback); // File/Env is true, CLI is false
         assert_eq!(merged.volume_step, Some(0.05)); // CLI overrides
-        assert_eq!(merged.tomp4, true); // File/Env is true, CLI is false
+        assert!(merged.tomp4); // File/Env is true, CLI is false
     }
 
     #[test]
@@ -127,18 +127,18 @@ mod tests {
         assert_eq!(merged.address, Some("192.168.1.101".to_string()));
         assert_eq!(merged.device, Some("Bedroom TV".to_string()));
         assert_eq!(merged.subtitles, Some("sub.srt".to_string()));
-        assert_eq!(merged.no_search, true);
-        assert_eq!(merged.loop_playback, true);
-        assert_eq!(merged.shuffle, true);
+        assert!(merged.no_search);
+        assert!(merged.loop_playback);
+        assert!(merged.shuffle);
         assert_eq!(merged.seek, Some("10s".to_string()));
         assert_eq!(merged.volume_step, Some(0.1));
-        assert_eq!(merged.tomp4, true);
+        assert!(merged.tomp4);
         assert_eq!(merged.media_type, Some("video/mp4".to_string()));
-        assert_eq!(merged.quiet, true);
-        assert_eq!(merged.no_metadata, true);
-        assert_eq!(merged.no_cover, true);
-        assert_eq!(merged.show_options, true);
-        assert_eq!(merged.exit, true);
+        assert!(merged.quiet);
+        assert!(merged.no_metadata);
+        assert!(merged.no_cover);
+        assert!(merged.show_options);
+        assert!(merged.exit);
         assert_eq!(merged.command, Some("play".to_string()));
         assert_eq!(merged.media_path, Some("file.mp4".to_string()));
     }
