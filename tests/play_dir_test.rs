@@ -1,4 +1,3 @@
-
 use std::io::{self, BufRead, BufReader, Write};
 use walkdir::WalkDir;
 

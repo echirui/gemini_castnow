@@ -2,7 +2,7 @@ use bytes::Bytes;
 use gemini_castnow::start_server;
 use http_body_util::{BodyExt, Empty};
 use hyper::{Method, Request, Uri};
-use hyper_util::client::legacy::{Client, connect::HttpConnector};
+use hyper_util::client::legacy::{connect::HttpConnector, Client};
 use hyper_util::rt::TokioExecutor;
 
 #[tokio::test]
