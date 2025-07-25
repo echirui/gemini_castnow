@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 use id3::{Tag, TagLike};
-use std::path::Path;
-use std::fs;
 use playlist_decoder::decode_playlist;
 use scraper::{Html, Selector};
+use std::fs;
+use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -93,7 +93,11 @@ fn handle_audio_file(file_path: &str) {
             }
 
             for picture in tag.pictures() {
-                println!("Cover Art: MIME Type = {}, Size = {} bytes", picture.mime_type, picture.data.len());
+                println!(
+                    "Cover Art: MIME Type = {}, Size = {} bytes",
+                    picture.mime_type,
+                    picture.data.len()
+                );
             }
         }
         Err(e) => {
@@ -121,7 +125,8 @@ fn handle_playlist_file(file_path: &str) {
     let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
 
     match extension.to_lowercase().as_str() {
-        "m3u" | "m3u8" | "pls" | "xspf" => { // playlist-decoder handles these
+        "m3u" | "m3u8" | "pls" | "xspf" => {
+            // playlist-decoder handles these
             let playlist_entries = decode_playlist(&content);
             println!("--- {} Playlist ---", extension.to_uppercase());
             for entry in playlist_entries {
@@ -151,7 +156,8 @@ fn handle_cue_file(content: &str) {
         if line.starts_with("FILE") {
             if let Some(file_path_start) = line.find('"') {
                 if let Some(file_path_end) = line[file_path_start + 1..].find('"') {
-                    current_file = line[file_path_start + 1 .. file_path_start + 1 + file_path_end].to_string();
+                    current_file =
+                        line[file_path_start + 1..file_path_start + 1 + file_path_end].to_string();
                     println!("File: {}", current_file);
                 }
             }
@@ -165,7 +171,7 @@ fn handle_cue_file(content: &str) {
         } else if line.starts_with("TITLE") {
             if let Some(title_start) = line.find('"') {
                 if let Some(title_end) = line[title_start + 1..].find('"') {
-                    let title = line[title_start + 1 .. title_start + 1 + title_end].to_string();
+                    let title = line[title_start + 1..title_start + 1 + title_end].to_string();
                     println!("    Title: {}", title);
                 }
             }
@@ -194,7 +200,10 @@ fn handle_html_file(file_path: &str) {
     };
 
     let document = Html::parse_document(&content);
-    let selector = Selector::parse("a[href$='.mp3'], a[href$='.flac'], a[href$='.ogg'], a[href$='.wav'], a[href$='.m4a']").unwrap();
+    let selector = Selector::parse(
+        "a[href$='.mp3'], a[href$='.flac'], a[href$='.ogg'], a[href$='.wav'], a[href$='.m4a']",
+    )
+    .unwrap();
 
     println!("--- Audio Links in HTML ---");
     for element in document.select(&selector) {
