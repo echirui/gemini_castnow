@@ -19,7 +19,7 @@ async fn test_start_server() {
     let connector = HttpConnector::new();
     let client: Client<HttpConnector, Full<Bytes>> =
         Client::builder(TokioExecutor::new()).build(connector);
-    let uri = format!("http://{}/", addr).parse().unwrap();
+    let uri = format!("http://{addr}/").parse().unwrap();
     let response = client.get(uri).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);

@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
         let device_info = chromecast::select_device(&settings, devices)?;
 
         let (device, transport_id, session_id) = if media_path.starts_with("http://") || media_path.starts_with("https://") {
-            chromecast::cast(&device_info, &settings).await?
+            chromecast::cast(&device_info, settings.clone()).await?
         } else {
             let file_path = PathBuf::from(media_path);
             if !file_path.exists() {
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
             let mut settings_with_url = settings.clone();
             settings_with_url.media_path = Some(media_url);
 
-            let (device, transport_id, session_id) = chromecast::cast(&device_info, &settings_with_url).await?;
+            let (device, transport_id, session_id) = chromecast::cast(&device_info, settings_with_url).await?;
 
             if settings.exit {
                 let _ = tx.send(());

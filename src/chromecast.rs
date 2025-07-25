@@ -99,7 +99,7 @@ pub fn select_device(
     }
 }
 
-pub async fn cast<'a>(device_info: &'a ServiceInfo, settings: &'a Settings) -> anyhow::Result<(CastDevice<'a>, String, String)> {
+pub async fn cast(device_info: &ServiceInfo, settings: Settings) -> anyhow::Result<(CastDevice, String, String)> {
     let ip = device_info
         .get_addresses()
         .iter()
