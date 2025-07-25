@@ -54,7 +54,7 @@ fn handle_audio_file(file_path: &str) {
     let path = Path::new(file_path);
 
     if !path.exists() {
-        eprintln!("Error: File not found at {}", file_path);
+        eprintln!("Error: File not found at {file_path}");
         return;
     }
 
@@ -62,31 +62,31 @@ fn handle_audio_file(file_path: &str) {
         Ok(tag) => {
             println!("--- Audio Metadata ---");
             if let Some(title) = tag.title() {
-                println!("Title: {}", title);
+                println!("Title: {title}");
             }
             if let Some(artist) = tag.artist() {
-                println!("Artist: {}", artist);
+                println!("Artist: {artist}");
             }
             if let Some(album) = tag.album() {
-                println!("Album: {}", album);
+                println!("Album: {album}");
             }
             if let Some(year) = tag.year() {
-                println!("Year: {}", year);
+                println!("Year: {year}");
             }
             if let Some(genre) = tag.genre() {
-                println!("Genre: {}", genre);
+                println!("Genre: {genre}");
             }
             if let Some(track) = tag.track() {
-                println!("Track: {}", track);
+                println!("Track: {track}");
             }
             if let Some(total_tracks) = tag.total_tracks() {
-                println!("Total Tracks: {}", total_tracks);
+                println!("Total Tracks: {total_tracks}");
             }
             if let Some(disc) = tag.disc() {
-                println!("Disc: {}", disc);
+                println!("Disc: {disc}");
             }
             if let Some(total_discs) = tag.total_discs() {
-                println!("Total Discs: {}", total_discs);
+                println!("Total Discs: {total_discs}");
             }
             if let Some(comment) = tag.comments().next() {
                 println!("Comment: {}", comment.text);
@@ -101,7 +101,7 @@ fn handle_audio_file(file_path: &str) {
             }
         }
         Err(e) => {
-            eprintln!("Error reading tags from {}: {}", file_path, e);
+            eprintln!("Error reading tags from {file_path}: {e}");
         }
     }
 }
@@ -110,14 +110,14 @@ fn handle_playlist_file(file_path: &str) {
     let path = Path::new(file_path);
 
     if !path.exists() {
-        eprintln!("Error: Playlist file not found at {}", file_path);
+        eprintln!("Error: Playlist file not found at {file_path}");
         return;
     }
 
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error reading playlist file {}: {}", file_path, e);
+            eprintln!("Error reading playlist file {file_path}: {e}");
             return;
         }
     };
@@ -130,14 +130,14 @@ fn handle_playlist_file(file_path: &str) {
             let playlist_entries = decode_playlist(&content);
             println!("--- {} Playlist ---", extension.to_uppercase());
             for entry in playlist_entries {
-                println!("Path: {}", entry);
+                println!("Path: {entry}");
             }
         }
         "cue" => {
             handle_cue_file(&content);
         }
         _ => {
-            eprintln!("Error: Unsupported playlist format for file {}", file_path);
+            eprintln!("Error: Unsupported playlist format for file {file_path}");
         }
     }
 }
@@ -158,26 +158,26 @@ fn handle_cue_file(content: &str) {
                 if let Some(file_path_end) = line[file_path_start + 1..].find('"') {
                     current_file =
                         line[file_path_start + 1..file_path_start + 1 + file_path_end].to_string();
-                    println!("File: {}", current_file);
+                    println!("File: {current_file}");
                 }
             }
         } else if line.starts_with("TRACK") {
             if let Some(track_num_str) = line.split_whitespace().nth(1) {
                 if let Ok(track_num) = track_num_str.parse::<u32>() {
                     current_track_number = track_num;
-                    println!("  Track: {}", current_track_number);
+                    println!("  Track: {current_track_number}");
                 }
             }
         } else if line.starts_with("TITLE") {
             if let Some(title_start) = line.find('"') {
                 if let Some(title_end) = line[title_start + 1..].find('"') {
                     let title = line[title_start + 1..title_start + 1 + title_end].to_string();
-                    println!("    Title: {}", title);
+                    println!("    Title: {title}");
                 }
             }
         } else if line.starts_with("INDEX") {
             if let Some(index_parts) = line.split_whitespace().nth(2) {
-                println!("    Index: {}", index_parts);
+                println!("    Index: {index_parts}");
             }
         }
     }
@@ -187,14 +187,14 @@ fn handle_html_file(file_path: &str) {
     let path = Path::new(file_path);
 
     if !path.exists() {
-        eprintln!("Error: HTML file not found at {}", file_path);
+        eprintln!("Error: HTML file not found at {file_path}");
         return;
     }
 
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error reading HTML file {}: {}", file_path, e);
+            eprintln!("Error reading HTML file {file_path}: {e}");
             return;
         }
     };
@@ -208,7 +208,7 @@ fn handle_html_file(file_path: &str) {
     println!("--- Audio Links in HTML ---");
     for element in document.select(&selector) {
         if let Some(href) = element.value().attr("href") {
-            println!("Link: {}", href);
+            println!("Link: {href}");
         }
     }
 }
