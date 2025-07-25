@@ -29,7 +29,7 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 println!("Toggling play/pause...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
-                        let current_volume = &media_status.volume;
+                        let current_volume = &status.volume;
                         let _ = device.receiver.set_volume(rust_cast::channels::receiver::Volume { level: current_volume.level, muted: !current_volume.muted });
                     }
                 }
@@ -43,7 +43,7 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 println!("Volume up...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
-                        let current_volume = &media_status.volume;
+                        let current_volume = &status.volume;
                         let new_level = (current_volume.level + 0.05).min(1.0);
                         let _ = device.receiver.set_volume(rust_cast::channels::receiver::Volume { level: new_level, muted: current_volume.muted });
                     }
@@ -54,7 +54,7 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 println!("Down...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
-                        let current_volume = &media_status.volume;
+                        let current_volume = &status.volume;
                         let new_level = (current_volume.level - 0.05).max(0.0);
                         let _ = device.receiver.set_volume(rust_cast::channels::receiver::Volume { level: new_level, muted: current_volume.muted });
                     }
