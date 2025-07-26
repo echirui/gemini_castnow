@@ -12,7 +12,7 @@ async fn test_start_server() {
     let file_path = PathBuf::from("test_media.mp4");
     tokio::fs::File::create(&file_path).await.unwrap();
 
-    let (addr, handle) = gemini_castnow::server::start_server(file_path.clone(), rx)
+    let (addr, handle) = crate::server::start_server(file_path.clone(), rx)
         .await
         .unwrap();
 
