@@ -99,7 +99,10 @@ pub fn select_device(
     }
 }
 
-pub fn cast(device_info: &ServiceInfo, settings: &Settings) -> anyhow::Result<()> {
+pub async fn cast(
+    device_info: &ServiceInfo,
+    settings: Settings,
+) -> anyhow::Result<(CastDevice, String, String)> {
     let ip = device_info
         .get_addresses()
         .iter()
@@ -108,7 +111,7 @@ pub fn cast(device_info: &ServiceInfo, settings: &Settings) -> anyhow::Result<()
         .to_string();
     let port = device_info.get_port();
 
-    let device = CastDevice::connect_without_host_verification(&ip, port)?;
+    let device = CastDevice::connect_without_host_verification(ip.to_owned(), port)?;
     let default_media_receiver_app = CastDeviceApp::from_str("CC1AD845").unwrap();
 
     let app = device.receiver.launch_app(&default_media_receiver_app)?;
@@ -128,5 +131,5 @@ pub fn cast(device_info: &ServiceInfo, settings: &Settings) -> anyhow::Result<()
         .media
         .load(app.transport_id.as_str(), app.session_id.as_str(), &media)?;
 
-    Ok(())
+    Ok((device, app.transport_id, app.session_id))
 }

@@ -1,10 +1,12 @@
 mod chromecast;
 mod config;
+mod player_controls;
 pub mod server;
 mod settings;
 mod utils;
 
 use clap::Parser;
+
 use settings::Settings;
 use std::path::PathBuf;
 
@@ -24,28 +26,32 @@ async fn main() -> anyhow::Result<()> {
         let devices = chromecast::discover_devices()?;
         let device_info = chromecast::select_device(&settings, devices)?;
 
-        if media_path.starts_with("http://") || media_path.starts_with("https://") {
-            chromecast::cast(&device_info, &settings)?;
-        } else {
-            let file_path = PathBuf::from(media_path);
-            if !file_path.exists() {
-                eprintln!("Error: File not found: {media_path}");
-                return Ok(());
-            }
+        let (device, transport_id, session_id) =
+            if media_path.starts_with("http://") || media_path.starts_with("https://") {
+                chromecast::cast(&device_info, settings.clone()).await?
+            } else {
+                let file_path = PathBuf::from(media_path);
+                if !file_path.exists() {
+                    eprintln!("Error: File not found: {media_path}");
+                    return Ok(());
+                }
 
-            let (tx, rx) = tokio::sync::oneshot::channel();
-            let (server_addr, server_handle) = server::start_server(file_path, rx).await?;
-            let media_url = format!("http://{server_addr}");
-            let mut settings_with_url = settings.clone();
-            settings_with_url.media_path = Some(media_url);
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                let (server_addr, server_handle) = server::start_server(file_path, rx).await?;
+                let media_url = format!("http://{server_addr}");
+                let mut settings_with_url = settings.clone();
+                settings_with_url.media_path = Some(media_url);
 
-            chromecast::cast(&device_info, &settings_with_url)?;
+                let (device, transport_id, session_id) =
+                    chromecast::cast(&device_info, settings_with_url).await?;
 
-            if settings.exit {
-                let _ = tx.send(());
-                server_handle.await?;
-            }
-        }
+                if settings.exit {
+                    let _ = tx.send(());
+                    server_handle.await?;
+                }
+                (device, transport_id, session_id)
+            };
+        player_controls::handle_player_controls(device, transport_id, session_id).await?;
     }
 
     Ok(())
