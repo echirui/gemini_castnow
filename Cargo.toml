@@ -1,11 +1,10 @@
-
 [package]
 name = "gemini_castnow"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.41", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 hyper = { version = "1", features = ["full"] }
 walkdir = "2.5.0"
@@ -21,6 +20,11 @@ serde_json = "1.0"
 anyhow = "1.0"
 crossterm = { version = "0.27.0", features = ["event-stream"] }
 futures = { version = "0.3", features = ["std"] }
+id3 = "1.0"
+playlist-decoder = "0.1.0"
+scraper = "0.19.0"
+image = "0.25.1"
 
 [dev-dependencies]
 tempfile = "3.10.1"
+mockall = "0.12.1"

@@ -32,7 +32,6 @@ pub async fn handle_player_controls(
                 // Play/Pause toggle
                 println!("Toggling play/pause...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         if media_status.player_state
                             == rust_cast::channels::media::PlayerState::Playing
@@ -52,7 +51,6 @@ pub async fn handle_player_controls(
                 // Mute toggle
                 println!("Toggling mute...");
                 if let Ok(receiver_status) = device.receiver.get_status() {
-                    // Removed .await
                     let current_volume = &receiver_status.volume;
                     let _ = device
                         .receiver
@@ -62,43 +60,42 @@ pub async fn handle_player_controls(
                         });
                 }
             }
-            KeyCode::Char('t') => {
-                // Subtitle toggle
-                println!("Toggling subtitles...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    if let Some(media_status) = status.entries.first() {
-                        let mut active_track_ids = media_status.active_track_ids.clone().unwrap_or_default();
-                        let text_track_id = media_status.tracks.as_ref().and_then(|tracks| {
-                            tracks.iter().find(|track| track.track_type == rust_cast::channels::media::TrackType::Text)
-                                .map(|track| track.track_id)
-                        });
-
-                        if let Some(track_id) = text_track_id {
-                            if active_track_ids.contains(&track_id) {
-                                // Subtitle is active, deactivate it
-                                active_track_ids.retain(|&id| id != track_id);
-                                println!("Subtitles off");
-                            } else {
-                                // Subtitle is inactive, activate it
-                                active_track_ids.push(track_id);
-                                println!("Subtitles on");
-                            }
-                            let _ = device.media.set_active_media_tracks(
-                                &transport_id,
-                                media_status.media_session_id,
-                                &active_track_ids,
-                            );
-                        } else {
-                            println!("No text tracks found.");
-                        }
-                    }
-                }
-            }
+            // KeyCode::Char('t') => {
+            //     // Subtitle toggle
+            //     println!("Toggling subtitles...");
+            //     if let Ok(status) = device.media.get_status(&transport_id, None) {
+            //         if let Some(media_status) = status.entries.first() {
+            //             let mut active_track_ids = media_status.active_track_ids.clone().unwrap_or_default();
+            //             let text_track_id = media_status.tracks.as_ref().and_then(|tracks| {
+            //                 tracks.iter().find(|track| track.track_type == rust_cast::channels::media::TrackType::Text)
+            //                     .map(|track| track.track_id)
+            //             });
+            //
+            //             if let Some(track_id) = text_track_id {
+            //                 if active_track_ids.contains(&track_id) {
+            //                     // Subtitle is active, deactivate it
+            //                     active_track_ids.retain(|&id| id != track_id);
+            //                     println!("Subtitles off");
+            //                 } else {
+            //                     // Subtitle is inactive, activate it
+            //                     active_track_ids.push(track_id);
+            //                     println!("Subtitles on");
+            //                 }
+            //                 let _ = device.media.set_active_media_tracks(
+            //                     &transport_id,
+            //                     media_status.media_session_id,
+            //                     &active_track_ids,
+            //                 );
+            //             } else {
+            //                 println!("No text tracks found.");
+            //             }
+            //         }
+            //     }
+            // }
             KeyCode::Up => {
                 // Volume up
                 println!("Volume up...");
                 if let Ok(receiver_status) = device.receiver.get_status() {
-                    // Removed .await
                     let current_volume = &receiver_status.volume;
                     let new_level = (current_volume.level.unwrap_or(0.0) + 0.05).min(1.0);
                     let _ = device
@@ -113,7 +110,6 @@ pub async fn handle_player_controls(
                 // Volume down
                 println!("Down...");
                 if let Ok(receiver_status) = device.receiver.get_status() {
-                    // Removed .await
                     let current_volume = &receiver_status.volume;
                     let new_level = (current_volume.level.unwrap_or(0.0) - 0.05).max(0.0);
                     let _ = device
@@ -128,7 +124,6 @@ pub async fn handle_player_controls(
                 // Seek backward
                 println!("Seeking backward...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
                         let new_time = (current_time - 10.0).max(0.0); // Seek back 10 seconds
@@ -145,10 +140,14 @@ pub async fn handle_player_controls(
                 // Seek forward
                 println!("Seeking forward...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
-                        let new_time = current_time + 10.0; // Seek forward 10 seconds
+                        let media_duration = media_status
+                            .media
+                            .as_ref()
+                            .and_then(|m| m.duration)
+                            .unwrap_or(current_time); // Use current_time if duration is not available
+                        let new_time = (current_time + 10.0).min(media_duration); // Cap at media_duration
                         let _ = device.media.seek(
                             &transport_id,
                             media_status.media_session_id,
@@ -158,65 +157,64 @@ pub async fn handle_player_controls(
                     }
                 }
             }
-            KeyCode::Char('p') => {
-                // Previous item in playlist
-                println!("Previous item in playlist...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    if let Some(media_status) = status.entries.first() {
-                        if let Some(current_item_id) = media_status.current_item_id {
-                            if let Some(items) = &media_status.items {
-                                if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
-                                    if current_index > 0 {
-                                        let previous_item_id = items[current_index - 1].item_id;
-                                        let _ = device.media.queue_update(
-                                            &transport_id,
-                                            media_status.media_session_id,
-                                            Some(previous_item_id),
-                                            None,
-                                            None,
-                                            None,
-                                        );
-                                    } else {
-                                        println!("Already at the beginning of the playlist.");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            KeyCode::Char('n') => {
-                // Next item in playlist
-                println!("Next item in playlist...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    if let Some(media_status) = status.entries.first() {
-                        if let Some(current_item_id) = media_status.current_item_id {
-                            if let Some(items) = &media_status.items {
-                                if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
-                                    if current_index < items.len() - 1 {
-                                        let next_item_id = items[current_index + 1].item_id;
-                                        let _ = device.media.queue_update(
-                                            &transport_id,
-                                            media_status.media_session_id,
-                                            Some(next_item_id),
-                                            None,
-                                            None,
-                                            None,
-                                        );
-                                    } else {
-                                        println!("Already at the end of the playlist.");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // KeyCode::Char('p') => {
+            //     // Previous item in playlist
+            //     println!("Previous item in playlist...");
+            //     if let Ok(status) = device.media.get_status(&transport_id, None) {
+            //         if let Some(media_status) = status.entries.first() {
+            //             if let Some(current_item_id) = media_status.current_item_id {
+            //                 if let Some(items) = &media_status.items {
+            //                     if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
+            //                         if current_index > 0 {
+            //                             let previous_item_id = items[current_index - 1].item_id;
+            //                             let _ = device.media.queue_update(
+            //                                 &transport_id,
+            //                                 media_status.media_session_id,
+            //                                 Some(previous_item_id),
+            //                                 None,
+            //                                 None,
+            //                                 None,
+            //                             );
+            //                         } else {
+            //                             println!("Already at the beginning of the playlist.");
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+            // KeyCode::Char('n') => {
+            //     // Next item in playlist
+            //     println!("Next item in playlist...");
+            //     if let Ok(status) = device.media.get_status(&transport_id, None) {
+            //         if let Some(media_status) = status.entries.first() {
+            //             if let Some(current_item_id) = media_status.current_item_id {
+            //                 if let Some(items) = &media_status.items {
+            //                     if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
+            //                         if current_index < items.len() - 1 {
+            //                             let next_item_id = items[current_index + 1].item_id;
+            //                             let _ = device.media.queue_update(
+            //                                 &transport_id,
+            //                                 media_status.media_session_id,
+            //                                 Some(next_item_id),
+            //                                 None,
+            //                                 None,
+            //                                 None,
+            //                             );
+            //                         } else {
+            //                             println!("Already at the end of the playlist.");
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
             KeyCode::Char('s') => {
                 // Stop playback
                 println!("Stopping playback...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let _ = device
                             .media
