@@ -6,7 +6,11 @@ use futures::StreamExt;
 use rust_cast::CastDevice;
 use tokio::sync::mpsc;
 
-pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: String, session_id: String) -> Result<(), anyhow::Error> {
+pub async fn handle_player_controls(
+    device: CastDevice<'_>,
+    transport_id: String,
+    _session_id: String,
+) -> Result<(), anyhow::Error> {
     enable_raw_mode()?;
     let mut reader = event::EventStream::new();
     let (tx, mut rx) = mpsc::unbounded_channel();
@@ -24,12 +28,38 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
 
     while let Some(key_code) = rx.recv().await {
         match key_code {
+            KeyCode::Char(' ') => {
+                // Play/Pause toggle
+                println!("Toggling play/pause...");
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    // Removed .await
+                    if let Some(media_status) = status.entries.first() {
+                        if media_status.player_state
+                            == rust_cast::channels::media::PlayerState::Playing
+                        {
+                            let _ = device
+                                .media
+                                .pause(&transport_id, media_status.media_session_id);
+                        } else {
+                            let _ = device
+                                .media
+                                .play(&transport_id, media_status.media_session_id);
+                        }
+                    }
+                }
+            }
             KeyCode::Char('m') => {
                 // Mute toggle
                 println!("Toggling mute...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    let current_volume = &status.volume;
-                    let _ = device.set_mute(!current_volume.muted).await;
+                if let Ok(receiver_status) = device.receiver.get_status() {
+                    // Removed .await
+                    let current_volume = &receiver_status.volume;
+                    let _ = device
+                        .receiver
+                        .set_volume(rust_cast::channels::receiver::Volume {
+                            level: current_volume.level,
+                            muted: Some(!current_volume.muted.unwrap_or(false)), // unwrap_or(false) を追加
+                        });
                 }
             }
             KeyCode::Char('t') => {
@@ -39,29 +69,47 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
             KeyCode::Up => {
                 // Volume up
                 println!("Volume up...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    let current_volume = &status.volume;
-                    let new_level = (current_volume.level + 0.05).min(1.0);
-                    let _ = device.set_volume(new_level).await;
+                if let Ok(receiver_status) = device.receiver.get_status() {
+                    // Removed .await
+                    let current_volume = &receiver_status.volume;
+                    let new_level = (current_volume.level.unwrap_or(0.0) + 0.05).min(1.0);
+                    let _ = device
+                        .receiver
+                        .set_volume(rust_cast::channels::receiver::Volume {
+                            level: Some(new_level),
+                            muted: current_volume.muted,
+                        });
                 }
             }
             KeyCode::Down => {
                 // Volume down
                 println!("Down...");
-                if let Ok(status) = device.media.get_status(&transport_id, None) {
-                    let current_volume = &status.volume;
-                    let new_level = (current_volume.level - 0.05).max(0.0);
-                    let _ = device.set_volume(new_level).await;
+                if let Ok(receiver_status) = device.receiver.get_status() {
+                    // Removed .await
+                    let current_volume = &receiver_status.volume;
+                    let new_level = (current_volume.level.unwrap_or(0.0) - 0.05).max(0.0);
+                    let _ = device
+                        .receiver
+                        .set_volume(rust_cast::channels::receiver::Volume {
+                            level: Some(new_level),
+                            muted: current_volume.muted,
+                        });
                 }
             }
             KeyCode::Left => {
                 // Seek backward
                 println!("Seeking backward...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
                         let new_time = (current_time - 10.0).max(0.0); // Seek back 10 seconds
-                        let _ = device.media.seek(&transport_id, media_status.media_session_id, Some(new_time), None);
+                        let _ = device.media.seek(
+                            &transport_id,
+                            media_status.media_session_id,
+                            Some(new_time),
+                            None,
+                        );
                     }
                 }
             }
@@ -69,10 +117,16 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 // Seek forward
                 println!("Seeking forward...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
                         let new_time = current_time + 10.0; // Seek forward 10 seconds
-                        let _ = device.media.seek(&transport_id, media_status.media_session_id, Some(new_time), None);
+                        let _ = device.media.seek(
+                            &transport_id,
+                            media_status.media_session_id,
+                            Some(new_time),
+                            None,
+                        );
                     }
                 }
             }
@@ -88,8 +142,11 @@ pub async fn handle_player_controls(mut device: CastDevice<'_>, transport_id: St
                 // Stop playback
                 println!("Stopping playback...");
                 if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    // Removed .await
                     if let Some(media_status) = status.entries.first() {
-                        let _ = device.media.stop(&transport_id, media_status.media_session_id);
+                        let _ = device
+                            .media
+                            .stop(&transport_id, media_status.media_session_id);
                     }
                 }
             }
