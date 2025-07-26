@@ -60,10 +60,38 @@ pub async fn handle_player_controls(
                         });
                 }
             }
-            // KeyCode::Char('t') => {
-            //     // Subtitle toggle (temporarily disabled due to rust-cast API changes)
-            //     println!("Subtitle toggle is temporarily disabled.");
-            // }
+            KeyCode::Char('t') => {
+                // Subtitle toggle
+                println!("Toggling subtitles...");
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    if let Some(media_status) = status.entries.first() {
+                        let mut active_track_ids = media_status.active_track_ids.clone().unwrap_or_default();
+                        let text_track_id = media_status.tracks.as_ref().and_then(|tracks| {
+                            tracks.iter().find(|track| track.track_type == rust_cast::channels::media::TrackType::Text)
+                                .map(|track| track.track_id)
+                        });
+
+                        if let Some(track_id) = text_track_id {
+                            if active_track_ids.contains(&track_id) {
+                                // Subtitle is active, deactivate it
+                                active_track_ids.retain(|&id| id != track_id);
+                                println!("Subtitles off");
+                            } else {
+                                // Subtitle is inactive, activate it
+                                active_track_ids.push(track_id);
+                                println!("Subtitles on");
+                            }
+                            let _ = device.media.set_active_media_tracks(
+                                &transport_id,
+                                media_status.media_session_id,
+                                &active_track_ids,
+                            );
+                        } else {
+                            println!("No text tracks found.");
+                        }
+                    }
+                }
+            }
             KeyCode::Up => {
                 // Volume up
                 println!("Volume up...");
@@ -129,14 +157,60 @@ pub async fn handle_player_controls(
                     }
                 }
             }
-            // KeyCode::Char('p') => {
-            //     // Previous item in playlist (temporarily disabled due to rust-cast API changes)
-            //     println!("Previous item in playlist is temporarily disabled.");
-            // }
-            // KeyCode::Char('n') => {
-            //     // Next item in playlist (temporarily disabled due to rust-cast API changes)
-            //     println!("Next item in playlist is temporarily disabled.");
-            // }
+            KeyCode::Char('p') => {
+                // Previous item in playlist
+                println!("Previous item in playlist...");
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    if let Some(media_status) = status.entries.first() {
+                        if let Some(current_item_id) = media_status.current_item_id {
+                            if let Some(items) = &media_status.items {
+                                if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
+                                    if current_index > 0 {
+                                        let previous_item_id = items[current_index - 1].item_id;
+                                        let _ = device.media.queue_update(
+                                            &transport_id,
+                                            media_status.media_session_id,
+                                            Some(previous_item_id),
+                                            None,
+                                            None,
+                                            None,
+                                        );
+                                    } else {
+                                        println!("Already at the beginning of the playlist.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('n') => {
+                // Next item in playlist
+                println!("Next item in playlist...");
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
+                    if let Some(media_status) = status.entries.first() {
+                        if let Some(current_item_id) = media_status.current_item_id {
+                            if let Some(items) = &media_status.items {
+                                if let Some(current_index) = items.iter().position(|item| item.item_id == current_item_id) {
+                                    if current_index < items.len() - 1 {
+                                        let next_item_id = items[current_index + 1].item_id;
+                                        let _ = device.media.queue_update(
+                                            &transport_id,
+                                            media_status.media_session_id,
+                                            Some(next_item_id),
+                                            None,
+                                            None,
+                                            None,
+                                        );
+                                    } else {
+                                        println!("Already at the end of the playlist.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             KeyCode::Char('s') => {
                 // Stop playback
                 println!("Stopping playback...");
