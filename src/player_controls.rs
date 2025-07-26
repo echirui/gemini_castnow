@@ -120,7 +120,11 @@ pub async fn handle_player_controls(
                     // Removed .await
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
-                        let media_duration = media_status.media.as_ref().and_then(|m| m.duration).unwrap_or(current_time); // Use current_time if duration is not available
+                        let media_duration = media_status
+                            .media
+                            .as_ref()
+                            .and_then(|m| m.duration)
+                            .unwrap_or(current_time); // Use current_time if duration is not available
                         let new_time = (current_time + 10.0).min(media_duration); // Cap at media_duration
                         let _ = device.media.seek(
                             &transport_id,

@@ -17,12 +17,8 @@ use std::path::{Path, PathBuf};
 struct Args {
     #[command(subcommand)]
     command: Option<Commands>,
-    #[arg(short, long, help = "Show current settings")]
-    show_options: bool,
-    #[arg(short, long, help = "Exit after casting")]
-    exit: bool,
-    #[arg(short, long, help = "Media path to cast")]
-    media_path: Option<String>,
+    #[clap(flatten)]
+    settings: settings::Settings,
 }
 
 #[derive(Subcommand, Debug)]
@@ -50,13 +46,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let cli_settings = settings::Settings {
-        show_options: args.show_options,
-        exit: args.exit,
-        media_path: args.media_path,
-        // Other settings fields should be initialized here if they exist in settings::Settings
-        // For now, assuming only these three are directly from CLI args
-    };
+    let cli_settings = args.settings;
 
     let file_and_env_settings = config::get_configuration()?;
     let settings = utils::merge_settings(cli_settings, file_and_env_settings);
