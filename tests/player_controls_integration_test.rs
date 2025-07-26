@@ -13,35 +13,41 @@ impl MockCastDevice {
     }
 
     // Mock media channel methods
-    async fn media_get_status(&self, _transport_id: &str, _request_id: Option<u32>) -> Result<rust_cast::channels::media::Status, rust_cast::errors::Error> {
+    async fn media_get_status(
+        &self,
+        _transport_id: &str,
+        _request_id: Option<u32>,
+    ) -> Result<rust_cast::channels::media::Status, rust_cast::errors::Error> {
         // Simulate a successful status response
         Ok(rust_cast::channels::media::Status {
             request_id: 0,
-            entries: vec![
-                rust_cast::channels::media::StatusEntry {
-                    media_session_id: 1,
-                    player_state: rust_cast::channels::media::PlayerState::Playing,
-                    current_time: Some(60.0),
-                    media: Some(rust_cast::channels::media::Media {
-                        content_id: "test".to_string(),
-                        content_type: "video/mp4".to_string(),
-                        duration: Some(300.0),
-                        stream_type: rust_cast::channels::media::StreamType::Buffered,
-                        metadata: None,
-                    }),
-                    idle_reason: None,
-                    playback_rate: 1.0, // f32
-                    extended_status: None,
-                    current_item_id: None,
-                    loading_item_id: None,
-                    preloaded_item_id: None,
-                    supported_media_commands: 0,
-                }
-            ],
+            entries: vec![rust_cast::channels::media::StatusEntry {
+                media_session_id: 1,
+                player_state: rust_cast::channels::media::PlayerState::Playing,
+                current_time: Some(60.0),
+                media: Some(rust_cast::channels::media::Media {
+                    content_id: "test".to_string(),
+                    content_type: "video/mp4".to_string(),
+                    duration: Some(300.0),
+                    stream_type: rust_cast::channels::media::StreamType::Buffered,
+                    metadata: None,
+                }),
+                idle_reason: None,
+                playback_rate: 1.0, // f32
+                extended_status: None,
+                current_item_id: None,
+                loading_item_id: None,
+                preloaded_item_id: None,
+                supported_media_commands: 0,
+            }],
         })
     }
 
-    async fn media_pause(&self, _transport_id: &str, _media_session_id: u32) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
+    async fn media_pause(
+        &self,
+        _transport_id: &str,
+        _media_session_id: u32,
+    ) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
         // Simulate a successful pause
         Ok(rust_cast::channels::media::StatusEntry {
             media_session_id: 1,
@@ -58,7 +64,11 @@ impl MockCastDevice {
         })
     }
 
-    async fn media_play(&self, _transport_id: &str, _media_session_id: u32) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
+    async fn media_play(
+        &self,
+        _transport_id: &str,
+        _media_session_id: u32,
+    ) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
         // Simulate a successful play
         Ok(rust_cast::channels::media::StatusEntry {
             media_session_id: 1,
@@ -75,7 +85,13 @@ impl MockCastDevice {
         })
     }
 
-    async fn media_seek(&self, _transport_id: &str, _media_session_id: u32, _current_time: Option<f64>, _custom_data: Option<serde_json::Value>) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
+    async fn media_seek(
+        &self,
+        _transport_id: &str,
+        _media_session_id: u32,
+        _current_time: Option<f64>,
+        _custom_data: Option<serde_json::Value>,
+    ) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
         // Simulate a successful seek
         Ok(rust_cast::channels::media::StatusEntry {
             media_session_id: 1,
@@ -92,7 +108,11 @@ impl MockCastDevice {
         })
     }
 
-    async fn media_stop(&self, _transport_id: &str, _media_session_id: u32) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
+    async fn media_stop(
+        &self,
+        _transport_id: &str,
+        _media_session_id: u32,
+    ) -> Result<rust_cast::channels::media::StatusEntry, rust_cast::errors::Error> {
         // Simulate a successful stop
         // PlayerState::Stopped does not exist, use PlayerState::Idle instead
         Ok(rust_cast::channels::media::StatusEntry {
@@ -111,7 +131,9 @@ impl MockCastDevice {
     }
 
     // Mock receiver channel methods
-    async fn receiver_get_status(&self) -> Result<rust_cast::channels::receiver::Status, rust_cast::errors::Error> {
+    async fn receiver_get_status(
+        &self,
+    ) -> Result<rust_cast::channels::receiver::Status, rust_cast::errors::Error> {
         // Simulate a successful status response
         Ok(rust_cast::channels::receiver::Status {
             request_id: 0,
@@ -119,13 +141,16 @@ impl MockCastDevice {
                 level: Some(0.5),
                 muted: Some(false),
             },
-            applications: vec![], // Vec<Application>
+            applications: vec![],   // Vec<Application>
             is_active_input: false, // bool
-            is_stand_by: false, // bool
+            is_stand_by: false,     // bool
         })
     }
 
-    async fn receiver_set_volume(&self, _volume: rust_cast::channels::receiver::Volume) -> Result<rust_cast::channels::receiver::Volume, rust_cast::errors::Error> {
+    async fn receiver_set_volume(
+        &self,
+        _volume: rust_cast::channels::receiver::Volume,
+    ) -> Result<rust_cast::channels::receiver::Volume, rust_cast::errors::Error> {
         // Simulate a successful volume set
         Ok(rust_cast::channels::receiver::Volume {
             level: Some(0.6),
