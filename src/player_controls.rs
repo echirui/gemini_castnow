@@ -31,20 +31,18 @@ pub async fn handle_player_controls(
             KeyCode::Char(' ') => {
                 // Play/Pause toggle
                 println!("Toggling play/pause...");
-                if let Ok(status) = device.media.get_status(&transport_id, None).await {
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
                         if media_status.player_state
                             == rust_cast::channels::media::PlayerState::Playing
                         {
                             let _ = device
                                 .media
-                                .pause(&transport_id, media_status.media_session_id)
-                                .await;
+                                .pause(&transport_id, media_status.media_session_id);
                         } else {
                             let _ = device
                                 .media
-                                .play(&transport_id, media_status.media_session_id)
-                                .await;
+                                .play(&transport_id, media_status.media_session_id);
                         }
                     }
                 }
@@ -52,16 +50,14 @@ pub async fn handle_player_controls(
             KeyCode::Char('m') => {
                 // Mute toggle
                 println!("Toggling mute...");
-                if let Ok(receiver_status) = device.receiver.get_status().await {
+                if let Ok(receiver_status) = device.receiver.get_status() {
                     let current_volume = &receiver_status.volume;
                     let _ = device
                         .receiver
                         .set_volume(rust_cast::channels::receiver::Volume {
                             level: current_volume.level,
                             muted: Some(!current_volume.muted.unwrap_or(false)), // unwrap_or(false) を追加
-                        })
-                        .await;
-                }
+                        });
                 }
             }
             // KeyCode::Char('t') => {
@@ -71,7 +67,7 @@ pub async fn handle_player_controls(
             KeyCode::Up => {
                 // Volume up
                 println!("Volume up...");
-                if let Ok(receiver_status) = device.receiver.get_status().await {
+                if let Ok(receiver_status) = device.receiver.get_status() {
                     let current_volume = &receiver_status.volume;
                     let new_level = (current_volume.level.unwrap_or(0.0) + 0.05).min(1.0);
                     let _ = device
@@ -79,15 +75,13 @@ pub async fn handle_player_controls(
                         .set_volume(rust_cast::channels::receiver::Volume {
                             level: Some(new_level),
                             muted: current_volume.muted,
-                        })
-                        .await;
-                }
+                        });
                 }
             }
             KeyCode::Down => {
                 // Volume down
                 println!("Down...");
-                if let Ok(receiver_status) = device.receiver.get_status().await {
+                if let Ok(receiver_status) = device.receiver.get_status() {
                     let current_volume = &receiver_status.volume;
                     let new_level = (current_volume.level.unwrap_or(0.0) - 0.05).max(0.0);
                     let _ = device
@@ -95,15 +89,13 @@ pub async fn handle_player_controls(
                         .set_volume(rust_cast::channels::receiver::Volume {
                             level: Some(new_level),
                             muted: current_volume.muted,
-                        })
-                        .await;
-                }
+                        });
                 }
             }
             KeyCode::Left => {
                 // Seek backward
                 println!("Seeking backward...");
-                if let Ok(status) = device.media.get_status(&transport_id, None).await {
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
                         let new_time = (current_time - 10.0).max(0.0); // Seek back 10 seconds
@@ -112,15 +104,14 @@ pub async fn handle_player_controls(
                             media_status.media_session_id,
                             Some(new_time),
                             None,
-                        )
-                        .await;
+                        );
                     }
                 }
             }
             KeyCode::Right => {
                 // Seek forward
                 println!("Seeking forward...");
-                if let Ok(status) = device.media.get_status(&transport_id, None).await {
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
                         let current_time = media_status.current_time.unwrap_or(0.0);
                         let media_duration = media_status
@@ -134,8 +125,7 @@ pub async fn handle_player_controls(
                             media_status.media_session_id,
                             Some(new_time),
                             None,
-                        )
-                        .await;
+                        );
                     }
                 }
             }
@@ -150,12 +140,11 @@ pub async fn handle_player_controls(
             KeyCode::Char('s') => {
                 // Stop playback
                 println!("Stopping playback...");
-                if let Ok(status) = device.media.get_status(&transport_id, None).await {
+                if let Ok(status) = device.media.get_status(&transport_id, None) {
                     if let Some(media_status) = status.entries.first() {
                         let _ = device
                             .media
-                            .stop(&transport_id, media_status.media_session_id)
-                            .await;
+                            .stop(&transport_id, media_status.media_session_id);
                     }
                 }
             }
